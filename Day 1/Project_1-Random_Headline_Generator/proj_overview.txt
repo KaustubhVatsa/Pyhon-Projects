@@ -1,0 +1,7 @@
+Creating a project which generates random headlines using the random library  along with the list function
+TODO
+1. Save the generated headlines in a separate text file
+   a.Saving timestamps along with headlines
+   b.Checking for the maximum number of headlines in a file
+2. Creating categories within the headlines
+
