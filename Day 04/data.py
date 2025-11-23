@@ -101,11 +101,7 @@ RAW_POKEMON = {
 }
 }
 
-POKEMON_DATA = {}
-for name, stats in RAW_POKEMON.items():
-    attack_objs = [ATTACKS[a_name] for a_name in stats['attacks']]
-    POKEMON_DATA[name] = Pokemon(name, stats, attack_objs)
-
+POKEMON_DATA = RAW_POKEMON
 
 # Helpers 
 
@@ -115,7 +111,11 @@ def get_pokemon_names():
 
 #Get a pokemon by name
 def get_pokemon(name):
-    return POKEMON_DATA[name]
+    if name not in POKEMON_DATA:
+        return None
+    stats = POKEMON_DATA[name]
+    attack_objs = [ATTACKS[a_name] for a_name in stats['attacks']]
+    return Pokemon(name, stats, attack_objs)
 
 #get all atttacks 
 def get_attack(name):

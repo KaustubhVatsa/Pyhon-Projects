@@ -1,0 +1,8 @@
+Creating a turn based pokemon game with 6 pokemon to each player in CLI mode 
+
+An Attack class : 
+   Contains : attack name , base damage , accuracy , debuffs 
+
+A Pokemon class : 
+   Contains : name , max_hp , current_hp , psyical_Attack , magical_attack , speed , physical_Def , magical_Def , dodge 
+

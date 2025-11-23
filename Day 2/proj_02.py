@@ -49,9 +49,7 @@ def calculate_result(expression):
         return "Error: Invalid expression"
 
 
-# -----------------------
-# Main Program
-# -----------------------
+
 while True:
     print("\nMenu:")
     print("1. Calculate Expression")
