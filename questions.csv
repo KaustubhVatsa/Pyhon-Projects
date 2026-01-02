@@ -1,0 +1,4 @@
+question,follow_up_question
+What is the difference between log-based and table ingestion modes in Hevo?,In what scenarios would you choose log-based over table ingestion?
+Explain the concept of Full Load in Hevo’s query modes.,Why might Full Load not be suitable for very large tables?
+What are some query modes available when ingesting data from relational databases in Hevo?,How does using a timestamp-based query mode differ from an incrementing column mode?
