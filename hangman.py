@@ -80,6 +80,8 @@ def game():
             print("You Won !!")
             print(wordSelected)
             gameOver = True
+        if lives == 0:
+            print("You Lost !! The word was :", wordSelected)
 
 
 game()

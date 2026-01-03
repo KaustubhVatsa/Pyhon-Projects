@@ -7,7 +7,7 @@ import time
 # PYGAME SETUP
 # =============================
 pygame.init()
-WINDOW_WIDTH, WINDOW_HEIGHT = 600, 600
+WINDOW_WIDTH, WINDOW_HEIGHT = 600, 700  # Increased height for better layout
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("Sudoku")
 
@@ -19,7 +19,7 @@ btn_font = pygame.font.SysFont("arial", 28)
 # =============================
 # COLORS
 # =============================
-BG_BLACK = (0, 0, 0)
+BG_BLACK = (20, 20, 30)  # Slightly off-black for better contrast
 GRID_WHITE = (255, 255, 255)
 FIXED_GRAY = (180, 180, 180)
 PLAYER_WHITE = (255, 255, 255)
@@ -51,9 +51,12 @@ start_time = None
 paused_at = None
 paused_duration = 0
 
-play_button_rect = None
-pause_button_rect = None
 won = False
+
+# Precompute button rects (no drawing in event loop)
+play_rect = pygame.Rect(WINDOW_WIDTH // 2 - 100,
+                        OFFSET + GRID_SIZE + 20, 200, 50)
+pause_rect = pygame.Rect(WINDOW_WIDTH - 120, 20, 100, 40)
 
 # =============================
 # SUDOKU LOGIC
@@ -122,17 +125,26 @@ def count_solutions(board):
     return count[0]
 
 
-def generate_puzzle(remove=40):
-    while True:
-        full = generate_full_board()
-        puzzle = [row[:] for row in full]
-        cells = [(i, j) for i in range(N) for j in range(N)]
-        random.shuffle(cells)
-        for _ in range(remove):
-            r, c = cells.pop()
-            puzzle[r][c] = 0
-        if count_solutions(puzzle) == 1:
-            return puzzle
+def generate_puzzle(remove_count=50):
+    full = generate_full_board()
+    puzzle = [row[:] for row in full]
+    cells = [(i, j) for i in range(N) for j in range(N)]
+    random.shuffle(cells)
+
+    removed = 0
+    for r, c in cells:
+        if removed >= remove_count:
+            break
+
+        temp_val = puzzle[r][c]
+        puzzle[r][c] = 0  # Try removing it
+
+        if count_solutions(puzzle) != 1:
+            puzzle[r][c] = temp_val  # Put it back if it ruins uniqueness
+        else:
+            removed += 1
+
+    return puzzle
 
 
 def is_solved(board):
@@ -144,11 +156,13 @@ def is_solved(board):
 
 
 def draw_grid():
+    # Thin lines for cells
     for i in range(0, GRID_SIZE + 1, CELL_SIZE):
         pygame.draw.line(screen, GRID_WHITE, (OFFSET + i, OFFSET),
                          (OFFSET + i, OFFSET + GRID_SIZE), 1)
         pygame.draw.line(screen, GRID_WHITE, (OFFSET, OFFSET + i),
                          (OFFSET + GRID_SIZE, OFFSET + i), 1)
+    # Thick lines for boxes
     for i in range(0, GRID_SIZE + 1, BOX_SIZE):
         pygame.draw.line(screen, GRID_WHITE, (OFFSET + i, OFFSET),
                          (OFFSET + i, OFFSET + GRID_SIZE), 3)
@@ -173,6 +187,13 @@ def draw_selection():
                          (OFFSET + c * CELL_SIZE, OFFSET + r * CELL_SIZE, CELL_SIZE, CELL_SIZE), 3)
 
 
+def draw_error_highlight():
+    if error_cell:
+        r, c = error_cell
+        pygame.draw.rect(screen, ERROR_RED,
+                         (OFFSET + c * CELL_SIZE, OFFSET + r * CELL_SIZE, CELL_SIZE, CELL_SIZE), 3)
+
+
 def draw_timer():
     if not game_started:
         text = font.render("00:00", True, GRID_WHITE)
@@ -190,22 +211,18 @@ def draw_errors():
 
 
 def draw_play_button():
-    btn = pygame.Rect(WINDOW_WIDTH//2 - 100, OFFSET + GRID_SIZE + 20, 200, 50)
-    pygame.draw.rect(screen, SELECT_GREEN, btn, border_radius=8)
+    pygame.draw.rect(screen, SELECT_GREEN, play_rect, border_radius=8)
     label = btn_font.render("PLAY", True, BG_BLACK)
-    screen.blit(label, (btn.centerx - label.get_width() //
-                2, btn.centery - label.get_height()//2))
-    return btn
+    screen.blit(label, (play_rect.centerx - label.get_width() //
+                2, play_rect.centery - label.get_height() // 2))
 
 
 def draw_pause_button():
-    btn = pygame.Rect(WINDOW_WIDTH - 120, 20, 100, 40)
-    pygame.draw.rect(screen, SELECT_GREEN, btn, border_radius=6)
-    label = btn_font.render(
-        "PAUSE" if not game_paused else "RESUME", True, BG_BLACK)
-    screen.blit(label, (btn.centerx - label.get_width() //
-                2, btn.centery - label.get_height()//2))
-    return btn
+    label_text = "PAUSE" if not game_paused else "RESUME"
+    pygame.draw.rect(screen, SELECT_GREEN, pause_rect, border_radius=6)
+    label = btn_font.render(label_text, True, BG_BLACK)
+    screen.blit(label, (pause_rect.centerx - label.get_width() //
+                2, pause_rect.centery - label.get_height() // 2))
 
 
 def draw_pause_overlay():
@@ -213,7 +230,24 @@ def draw_pause_overlay():
     overlay.fill(OVERLAY_BLACK)
     screen.blit(overlay, (0, 0))
     txt = big_font.render("PAUSED", True, GRID_WHITE)
-    screen.blit(txt, (WINDOW_WIDTH//2 - txt.get_width()//2, 260))
+    screen.blit(txt, (WINDOW_WIDTH // 2 - txt.get_width() //
+                2, WINDOW_HEIGHT // 2 - 50))
+
+
+def draw_win_overlay():
+    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill(OVERLAY_BLACK)
+    screen.blit(overlay, (0, 0))
+    txt = big_font.render("YOU WON!", True, GRID_WHITE)
+    screen.blit(txt, (WINDOW_WIDTH // 2 - txt.get_width() //
+                2, WINDOW_HEIGHT // 2 - 50))
+    # Final time
+    now = time.time()
+    elapsed = int(now - start_time - paused_duration)
+    m, s = divmod(elapsed, 60)
+    time_text = font.render(f"Time: {m:02}:{s:02}", True, GRID_WHITE)
+    screen.blit(time_text, (WINDOW_WIDTH // 2 -
+                time_text.get_width() // 2, WINDOW_HEIGHT // 2 + 50))
 
 
 # =============================
@@ -227,6 +261,11 @@ originals = {(r, c) for r in range(N) for c in range(N) if board[r][c] != 0}
 # =============================
 running = True
 while running:
+    # Handle error flash timeout
+    if error_time and time.time() - error_time > 0.5:
+        error_cell = None
+        error_time = 0
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -235,45 +274,60 @@ while running:
             mx, my = pygame.mouse.get_pos()
 
             if not game_started:
-                play_button_rect = draw_play_button()
-                if play_button_rect.collidepoint(mx, my):
+                if play_rect.collidepoint(mx, my):
                     game_started = True
                     start_time = time.time()
-
-            if game_started:
-                pause_button_rect = draw_pause_button()
-                if pause_button_rect.collidepoint(mx, my):
-                    if not game_paused:
+            else:
+                if pause_rect.collidepoint(mx, my):
+                    if not game_paused and not won:
                         game_paused = True
                         paused_at = time.time()
-                    else:
+                    elif game_paused:
                         game_paused = False
                         paused_duration += time.time() - paused_at
+                # Grid selection
+                elif not game_paused and not won:
+                    grid_x = mx - OFFSET
+                    grid_y = my - OFFSET
+                    if 0 <= grid_x < GRID_SIZE and 0 <= grid_y < GRID_SIZE:
+                        c = grid_x // CELL_SIZE
+                        r = grid_y // CELL_SIZE
+                        if 0 <= r < N and 0 <= c < N and board[r][c] == 0:
+                            selected = (r, c)
 
-        if event.type == pygame.KEYDOWN and game_started and not game_paused and selected:
+        if event.type == pygame.KEYDOWN and game_started and not game_paused and not won and selected:
             r, c = selected
             if '1' <= event.unicode <= '9':
                 n = int(event.unicode)
-                if isValid(board, r, c, n):
+                if board[r][c] == 0 and isValid(board, r, c, n):
                     board[r][c] = n
                     if is_solved(board):
                         won = True
                 else:
+                    error_cell = (r, c)
+                    error_time = time.time()
                     error_count += 1
 
+    # Render
     screen.fill(BG_BLACK)
     draw_grid()
     draw_numbers(board)
     draw_timer()
     draw_errors()
+    draw_selection()
+
+    if error_cell and time.time() - error_time < 0.5:
+        draw_error_highlight()
 
     if not game_started:
-        play_button_rect = draw_play_button()
+        draw_play_button()
     else:
-        pause_button_rect = draw_pause_button()
+        draw_pause_button()
 
     if game_paused:
         draw_pause_overlay()
+    if won:
+        draw_win_overlay()
 
     pygame.display.flip()
     clock.tick(60)
